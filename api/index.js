@@ -503,6 +503,12 @@ app.get('/', (req, res) => {
     res.json({ message: 'API está funcionando!' });
 });
 
-app.listen(port, () => {
+// Inicia o servidor
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
     console.log(`API rodando na porta ${port}`);
-});
+  });
+}
+
+// Exporta para o Vercel
+module.exports = app;
