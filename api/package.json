@@ -4,7 +4,7 @@
   "description": "API para controle de lavadoras e secadoras via Blynk",
   "main": "index.js",
   "engines": {
-    "node": "18.x"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node index.js",
