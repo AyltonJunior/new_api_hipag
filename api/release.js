@@ -1,11 +1,14 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('../serviceAccountKey.json');
 
 // Inicializa o Firebase Admin apenas uma vez (serverless safe)
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: "https://hi-pag-303ad-default-rtdb.firebaseio.com"
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    }),
+    databaseURL: process.env.FIREBASE_DATABASE_URL
   });
 }
 const db = admin.database();
