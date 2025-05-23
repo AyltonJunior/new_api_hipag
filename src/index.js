@@ -363,6 +363,76 @@ app.delete('/api/nodes/:path/:id', async (req, res) => {
   }
 });
 
+// Novo endpoint para status de máquina específica, dosadora (se lavadora) e power-air
+app.get('/api/status', async (req, res) => {
+  const { store, machine } = req.query;
+  if (!store || !machine) {
+    return res.status(400).json({ error: 'Parâmetros store e machine são obrigatórios.' });
+  }
+
+  // IDs fixos para lavadoras e secadoras
+  const lavadorasIds = ['432', '543', '654'];
+  const secadorasIds = ['765', '876', '987'];
+
+  let tipo = null;
+  if (lavadorasIds.includes(machine)) tipo = 'lavadora';
+  else if (secadorasIds.includes(machine)) tipo = 'secadora';
+  else {
+    return res.status(400).json({ error: 'ID de máquina não reconhecido.' });
+  }
+
+  try {
+    let status = null;
+    let dosadoraStatus = null;
+    if (tipo === 'lavadora') {
+      const snap = await db.ref(`${store}/status/lavadoras/${machine}`).once('value');
+      status = snap.val() || 'offline';
+      // Consulta status da dosadora correspondente
+      const dosSnap = await db.ref(`${store}/status/dosadoras/${machine}`).once('value');
+      dosadoraStatus = dosSnap.val() || 'offline';
+    } else {
+      const snap = await db.ref(`${store}/status/secadoras/${machine}`).once('value');
+      status = snap.val() || 'offline';
+    }
+
+    // Consulta API externa para power-air
+    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+    let powerAir = null;
+    try {
+      const apiUrl = `https://sistema.lavanderia60minutos.com.br/api/v1/stores/${store}`;
+      const response = await fetch(apiUrl, {
+        headers: {
+          "X-Token": "1be10a9c20528183b64e3c69564db6958eab7f434ee94350706adb4efc261869"
+        }
+      });
+      const data = await response.json();
+      powerAir = data?.data?.attributes?.['power-air'] || null;
+    } catch (err) {
+      powerAir = null;
+    }
+
+    const responseObj = {};
+    responseObj[tipo] = { [machine]: status };
+    if (tipo === 'lavadora') {
+      responseObj['dosadora'] = { [machine]: dosadoraStatus };
+    }
+    responseObj['power-air'] = powerAir;
+
+    // Enviar para Firebase com base no 'power-air'
+    if (powerAir === 'low') {
+      await db.ref(`${store}/ar_condicionado/18`).set(true);
+      console.log(`Enviado para Firebase: ${store}/ar_condicionado/18:true`);
+    } else if (powerAir === 'mid') {
+      await db.ref(`${store}/ar_condicionado/22`).set(true);
+      console.log(`Enviado para Firebase: ${store}/ar_condicionado/22:true`);
+    }
+
+    res.json(responseObj);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 }); 
